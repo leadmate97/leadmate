@@ -6,7 +6,7 @@ import { requireBusinessAccess } from "@/lib/billing/server";
 export async function POST(request: NextRequest) {
   try {
     const { businessId } = await request.json();
-    if (!businessId) return NextResponse.json({ error: "businessId가 필요합니다." }, { status: 400 });
+    if (!businessId) return NextResponse.json({ error: "businessId가 필요합니다.", code: "BUSINESS_ID_REQUIRED" }, { status: 400 });
 
     await requireBusinessAccess(businessId, true);
     const admin = createAdminClient();
@@ -34,12 +34,14 @@ export async function POST(request: NextRequest) {
 
     const origin = request.nextUrl.origin;
     return NextResponse.json({
+      ok: true,
+      stage: "ready",
       customerKey,
       clientKey,
       successUrl: `${origin}/billing/success?businessId=${encodeURIComponent(businessId)}`,
       failUrl: `${origin}/billing/fail`
     });
   } catch (error: any) {
-    return NextResponse.json({ error: error?.message || "결제수단 등록 준비에 실패했습니다." }, { status: 400 });
+    return NextResponse.json({ error: error?.message || "결제수단 등록 준비에 실패했습니다.", code: error?.code || "BILLING_SETUP_FAILED" }, { status: 400 });
   }
 }

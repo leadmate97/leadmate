@@ -1,22 +1,29 @@
-# LeadMate V2.4.2
+# LeadMate V2.4.3
 
-V2.4 자동결제 기능은 유지하고, Vercel 환경변수 인식 상태를 화면에서 직접 확인할 수 있는 진단 패치입니다.
+카드 등록 버튼을 눌러도 토스 자동결제 등록창이 열리지 않는 상황을 진단하기 위한 패치입니다.
 
-## 추가 기능
-`/billing` 화면에 다음 항목이 표시됩니다.
+## 추가 진단 단계
+`/billing`의 `카드 등록 진단` 영역에서 다음 흐름을 순서대로 확인합니다.
 
-- Toss Client Key ✓/✕
-- Toss Secret Key ✓/✕
-- Supabase Server Key ✓/✕
-- Cron Secret ✓/✕
-- Toss Key Pair ✓/✕
-- Production/Preview 환경
-- 테스트/라이브 키가 섞인 경우 경고
-- CRON_SECRET에 Toss secret key를 잘못 넣은 경우 경고
+1. 카드 등록 버튼 클릭
+2. Toss JavaScript SDK 로딩 여부
+3. `/api/billing/setup` 서버 호출
+4. clientKey / customerKey / successUrl / failUrl 확인
+5. `TossPayments(clientKey)` 초기화
+6. `payment({ customerKey })` 생성
+7. `requestBillingAuth()` 실행
+8. 발생한 오류 코드와 메시지 표시
 
-실제 키 값은 브라우저에 노출하지 않습니다.
+실제 Client/Secret 키 값은 화면에 노출하지 않습니다.
+
+## Supabase
+추가 SQL 없음.
 
 ## 적용
-Supabase 추가 SQL은 없습니다.
+ZIP 내용을 기존 LeadMate 폴더에 덮어쓰고:
+- npm install
+- npm run build
+- git add/commit/push
 
-Vercel 환경변수를 수정한 뒤에는 반드시 새 Production Redeploy가 필요합니다.
+Vercel 배포 완료 후 `/billing`에서 `카드 등록` 버튼을 누르고
+`카드 등록 진단`에 표시되는 마지막 단계와 오류 코드를 확인합니다.

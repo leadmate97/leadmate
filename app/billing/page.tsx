@@ -52,6 +52,14 @@ type BillingDiagnostics = {
   warnings: string[];
 };
 
+
+type CardRegisterStep = {
+  at: string;
+  stage: string;
+  ok: boolean;
+  detail?: string;
+};
+
 type BillingStatus = {
   configured: boolean;
   paymentMethod: null | {
@@ -83,6 +91,17 @@ export default function BillingPage() {
   const [saving, setSaving] = useState<PlanCode | null>(null);
   const [registering, setRegistering] = useState(false);
   const [cancelSaving, setCancelSaving] = useState(false);
+  const [sdkLoaded, setSdkLoaded] = useState(false);
+  const [sdkLoadError, setSdkLoadError] = useState(false);
+  const [cardRegisterSteps, setCardRegisterSteps] = useState<CardRegisterStep[]>([]);
+  const [lastCardError, setLastCardError] = useState<{ code?: string; name?: string; message: string } | null>(null);
+
+  function addCardStep(stage: string, ok: boolean, detail?: string) {
+    setCardRegisterSteps((prev) => [
+      ...prev.slice(-7),
+      { at: new Date().toLocaleTimeString("ko-KR"), stage, ok, detail }
+    ]);
+  }
 
   async function loadBillingStatus(businessId: string) {
     const response = await fetch(`/api/billing/status?businessId=${encodeURIComponent(businessId)}`, { cache: "no-store" });
@@ -128,26 +147,83 @@ export default function BillingPage() {
 
   async function registerCard() {
     if (!settings) return;
-    setRegistering(true); setMessage("");
+
+    setRegistering(true);
+    setMessage("");
+    setLastCardError(null);
+    setCardRegisterSteps([]);
+
     try {
-      if (!window.TossPayments) throw new Error("토스페이먼츠 SDK를 불러오지 못했습니다.");
+      addCardStep("버튼 클릭", true, "카드 등록 요청을 시작했습니다.");
+
+      if (!sdkLoaded || !window.TossPayments) {
+        addCardStep("Toss SDK", false, sdkLoadError ? "SDK 스크립트 로딩 실패" : "SDK가 아직 준비되지 않음");
+        throw Object.assign(new Error("토스페이먼츠 SDK가 아직 준비되지 않았습니다. 페이지를 새로고침한 뒤 다시 시도해주세요."), { code: "SDK_NOT_READY" });
+      }
+      addCardStep("Toss SDK", true, "window.TossPayments 확인 완료");
+
+      addCardStep("서버 준비 API", true, "customerKey 요청 중");
       const response = await fetch("/api/billing/setup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ businessId: settings.business_id })
       });
-      const setup = await response.json();
-      if (!response.ok) throw new Error(setup.error || "결제수단 등록 준비 실패");
 
-      const tossPayments = window.TossPayments(setup.clientKey);
-      const payment = tossPayments.payment({ customerKey: setup.customerKey });
+      let setup: any = {};
+      try {
+        setup = await response.json();
+      } catch {
+        throw Object.assign(new Error(`서버 응답을 JSON으로 읽지 못했습니다. HTTP ${response.status}`), { code: "SETUP_BAD_RESPONSE" });
+      }
+
+      if (!response.ok) {
+        addCardStep("서버 준비 API", false, `${response.status} · ${setup.error || "오류"}`);
+        throw Object.assign(new Error(setup.error || "결제수단 등록 준비 실패"), { code: setup.code || `HTTP_${response.status}` });
+      }
+
+      if (!setup.clientKey || !setup.customerKey || !setup.successUrl || !setup.failUrl) {
+        addCardStep("서버 준비 API", false, "필수 응답값 누락");
+        throw Object.assign(new Error("결제수단 등록에 필요한 서버 응답값이 누락되었습니다."), { code: "SETUP_MISSING_FIELDS" });
+      }
+
+      addCardStep("서버 준비 API", true, "clientKey/customerKey/redirect URL 확인 완료");
+
+      let tossPayments: ReturnType<NonNullable<typeof window.TossPayments>>;
+      try {
+        tossPayments = window.TossPayments(setup.clientKey);
+        addCardStep("Toss 초기화", true, "TossPayments(clientKey) 성공");
+      } catch (e: any) {
+        addCardStep("Toss 초기화", false, e?.message || "초기화 실패");
+        throw Object.assign(new Error(e?.message || "토스페이먼츠 초기화에 실패했습니다."), { code: e?.code || "TOSS_INIT_FAILED" });
+      }
+
+      let payment: ReturnType<typeof tossPayments.payment>;
+      try {
+        payment = tossPayments.payment({ customerKey: setup.customerKey });
+        addCardStep("Billing 인스턴스", true, "payment(customerKey) 생성 완료");
+      } catch (e: any) {
+        addCardStep("Billing 인스턴스", false, e?.message || "payment 생성 실패");
+        throw Object.assign(new Error(e?.message || "자동결제 인스턴스를 만들지 못했습니다."), { code: e?.code || "PAYMENT_INIT_FAILED" });
+      }
+
+      addCardStep("카드 등록창 요청", true, "requestBillingAuth 호출");
       await payment.requestBillingAuth({
         method: "CARD",
         successUrl: setup.successUrl,
         failUrl: setup.failUrl
       });
+
+      // 일반적으로 성공하면 successUrl로 이동하므로 여기까지 남아 있으면 호출은 반환된 상태입니다.
+      addCardStep("카드 등록창 요청", true, "SDK 호출이 반환되었습니다.");
     } catch (error: any) {
-      setMessage(error?.message || "결제수단 등록을 시작하지 못했습니다.");
+      const info = {
+        code: error?.code || error?.errorCode || undefined,
+        name: error?.name || undefined,
+        message: error?.message || "결제수단 등록을 시작하지 못했습니다."
+      };
+      setLastCardError(info);
+      setMessage(`${info.code ? `[${info.code}] ` : ""}${info.message}`);
+      addCardStep("최종 결과", false, `${info.code ? `${info.code} · ` : ""}${info.message}`);
       setRegistering(false);
     }
   }
@@ -176,7 +252,18 @@ export default function BillingPage() {
   const nextBillingAt = billingStatus?.subscription?.next_billing_at || subscription?.trial_ends_at;
 
   return <AppShell>
-    <Script src="https://js.tosspayments.com/v2/standard" strategy="afterInteractive" />
+    <Script
+      src="https://js.tosspayments.com/v2/standard"
+      strategy="afterInteractive"
+      onLoad={() => {
+        setSdkLoaded(Boolean(window.TossPayments));
+        setSdkLoadError(false);
+      }}
+      onError={() => {
+        setSdkLoaded(false);
+        setSdkLoadError(true);
+      }}
+    />
 
     <div className="page-head">
       <div>
@@ -235,9 +322,46 @@ export default function BillingPage() {
           </div>}
         </div>}
       </div>
-      <button className="button primary" disabled={registering || !billingStatus?.configured} onClick={registerCard}>
+      <button className="button primary" disabled={registering || !billingStatus?.configured || sdkLoadError} onClick={registerCard}>
         {registering ? "등록창 여는 중..." : card ? "카드 변경" : "카드 등록"}
       </button>
+    </section>
+
+    <section className="panel card-flow-diagnostics">
+      <div className="card-flow-head">
+        <div>
+          <span className="billing-kicker">카드 등록 진단</span>
+          <h2>등록창 실행 상태</h2>
+        </div>
+        <span className={sdkLoaded ? "diag-ok compact" : sdkLoadError ? "diag-bad compact" : "diag-wait compact"}>
+          Toss SDK {sdkLoaded ? "준비됨 ✓" : sdkLoadError ? "로딩 실패 ✕" : "로딩 중…"}
+        </span>
+      </div>
+
+      {cardRegisterSteps.length === 0 ? (
+        <p className="muted-text">카드 등록 버튼을 누르면 단계별 실행 상태가 여기에 표시됩니다.</p>
+      ) : (
+        <div className="card-step-list">
+          {cardRegisterSteps.map((step, index) => (
+            <div className="card-step" key={`${step.at}-${index}`}>
+              <span className={step.ok ? "step-dot ok" : "step-dot bad"}>{step.ok ? "✓" : "✕"}</span>
+              <div>
+                <strong>{step.stage}</strong>
+                <span>{step.at}{step.detail ? ` · ${step.detail}` : ""}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {lastCardError && (
+        <div className="card-error-box">
+          <strong>마지막 오류</strong>
+          <code>{lastCardError.code || "NO_CODE"}</code>
+          <p>{lastCardError.message}</p>
+          {lastCardError.name && <span>{lastCardError.name}</span>}
+        </div>
+      )}
     </section>
 
     <section className="pricing-grid">
