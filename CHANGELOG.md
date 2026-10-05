@@ -1,10 +1,8 @@
 # CHANGELOG
 
-## V2.4.3
-- Toss SDK script onLoad/onError 상태 표시
-- 카드 등록 클릭 단계별 진단 추가
-- billing setup API 성공/실패 단계 표시
-- TossPayments 초기화 오류 표시
-- payment(customerKey) 생성 오류 표시
-- requestBillingAuth 오류 코드/메시지 표시
-- 실제 secret 값은 진단 화면에 노출하지 않음
+## V2.4.4
+- billing business access 검증을 authenticated Supabase session 기반으로 변경
+- service-role 프로젝트/접근 오류 메시지 세분화
+- 비즈니스 접근 진단 API 추가
+- /billing에 로그인/멤버십/server-role/subscription 진단 UI 추가
+- BUSINESS_MEMBER_NOT_FOUND 등 구체적 오류코드 표시

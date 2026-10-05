@@ -16,7 +16,12 @@ export async function POST(request: NextRequest) {
       .select("provider_customer_id")
       .eq("business_id", businessId)
       .single();
-    if (error) throw error;
+
+    if (error) {
+      const wrapped = new Error(`Supabase 서버키 조회 실패: ${error.message}`) as Error & { code?: string };
+      wrapped.code = error.code || "SERVICE_ROLE_QUERY_FAILED";
+      throw wrapped;
+    }
 
     let customerKey = sub?.provider_customer_id;
     if (!customerKey) {

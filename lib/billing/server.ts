@@ -10,20 +10,44 @@ export type BusinessAccess = {
 
 export async function requireBusinessAccess(businessId: string, ownerOnly = true): Promise<BusinessAccess> {
   const userClient = await createUserClient();
-  const { data: { user } } = await userClient.auth.getUser();
-  if (!user) throw new Error("로그인이 필요합니다.");
+  const { data: { user }, error: userError } = await userClient.auth.getUser();
 
-  const admin = createAdminClient();
-  const { data: member, error } = await admin
+  if (userError) {
+    const err = new Error(`로그인 확인 실패: ${userError.message}`) as Error & { code?: string };
+    err.code = "AUTH_GET_USER_FAILED";
+    throw err;
+  }
+  if (!user) {
+    const err = new Error("로그인이 필요합니다.") as Error & { code?: string };
+    err.code = "AUTH_REQUIRED";
+    throw err;
+  }
+
+  // 접근 권한 확인은 사용자의 실제 Supabase 세션으로 조회합니다.
+  // 이 조회가 성공한다면 브라우저에서 사용 중인 비즈니스와 서버 세션이 일치합니다.
+  const { data: member, error: memberError } = await userClient
     .from("business_members")
-    .select("role")
+    .select("business_id,role")
     .eq("business_id", businessId)
     .eq("user_id", user.id)
     .maybeSingle();
 
-  if (error || !member) throw new Error("비즈니스 접근 권한이 없습니다.");
+  if (memberError) {
+    const err = new Error(`비즈니스 멤버십 조회 실패: ${memberError.message}`) as Error & { code?: string };
+    err.code = "BUSINESS_MEMBER_QUERY_FAILED";
+    throw err;
+  }
+
+  if (!member) {
+    const err = new Error("현재 로그인 계정이 이 비즈니스의 멤버로 등록되어 있지 않습니다.") as Error & { code?: string };
+    err.code = "BUSINESS_MEMBER_NOT_FOUND";
+    throw err;
+  }
+
   if (ownerOnly && !["owner", "admin"].includes(member.role)) {
-    throw new Error("구독 관리 권한이 없습니다.");
+    const err = new Error(`구독 관리 권한이 없습니다. 현재 역할: ${member.role}`) as Error & { code?: string };
+    err.code = "BILLING_ROLE_REQUIRED";
+    throw err;
   }
 
   return { userId: user.id, email: user.email ?? null, role: member.role };

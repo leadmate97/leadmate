@@ -53,6 +53,17 @@ type BillingDiagnostics = {
 };
 
 
+type AccessDiagnostics = {
+  ok: boolean;
+  authUser: boolean;
+  userMembership: boolean;
+  userRole: string | null;
+  serviceRoleConnection: boolean;
+  subscriptionFound: boolean;
+  code: string | null;
+  error: string | null;
+};
+
 type CardRegisterStep = {
   at: string;
   stage: string;
@@ -85,6 +96,7 @@ export default function BillingPage() {
   const [subscription, setSubscription] = useState<SubscriptionRow | null>(null);
   const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null);
   const [diagnostics, setDiagnostics] = useState<BillingDiagnostics | null>(null);
+  const [accessDiagnostics, setAccessDiagnostics] = useState<AccessDiagnostics | null>(null);
   const [customerCount, setCustomerCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
@@ -121,9 +133,14 @@ export default function BillingPage() {
       setCustomerCount(count ?? 0);
       await loadBillingStatus(settings.business_id);
       try {
-        const diagResponse = await fetch("/api/billing/diagnostics", { cache: "no-store" });
+        const [diagResponse, accessResponse] = await Promise.all([
+          fetch("/api/billing/diagnostics", { cache: "no-store" }),
+          fetch(`/api/billing/access-diagnostics?businessId=${encodeURIComponent(settings.business_id)}`, { cache: "no-store" })
+        ]);
         const diagResult = await diagResponse.json();
+        const accessResult = await accessResponse.json();
         if (diagResponse.ok) setDiagnostics(diagResult);
+        setAccessDiagnostics(accessResult);
       } catch {}
       setLoading(false);
     })();
@@ -325,6 +342,32 @@ export default function BillingPage() {
       <button className="button primary" disabled={registering || !billingStatus?.configured || sdkLoadError} onClick={registerCard}>
         {registering ? "등록창 여는 중..." : card ? "카드 변경" : "카드 등록"}
       </button>
+    </section>
+
+    <section className="panel access-diagnostics">
+      <div className="card-flow-head">
+        <div>
+          <span className="billing-kicker">비즈니스 접근 진단</span>
+          <h2>로그인·멤버십·서버키 확인</h2>
+        </div>
+        <span className={accessDiagnostics?.ok ? "diag-ok compact" : "diag-bad compact"}>
+          {accessDiagnostics?.ok ? "접근 정상 ✓" : "확인 필요 ✕"}
+        </span>
+      </div>
+
+      <div className="diag-grid access-grid">
+        <span className={accessDiagnostics?.authUser ? "diag-ok" : "diag-bad"}>로그인 세션 {accessDiagnostics?.authUser ? "✓" : "✕"}</span>
+        <span className={accessDiagnostics?.userMembership ? "diag-ok" : "diag-bad"}>비즈니스 멤버십 {accessDiagnostics?.userMembership ? "✓" : "✕"}</span>
+        <span className={accessDiagnostics?.serviceRoleConnection ? "diag-ok" : "diag-bad"}>Supabase 서버 연결 {accessDiagnostics?.serviceRoleConnection ? "✓" : "✕"}</span>
+        <span className={accessDiagnostics?.subscriptionFound ? "diag-ok" : "diag-bad"}>구독 레코드 {accessDiagnostics?.subscriptionFound ? "✓" : "✕"}</span>
+      </div>
+
+      {accessDiagnostics?.userRole && <p className="muted-text access-role">현재 역할: <strong>{accessDiagnostics.userRole}</strong></p>}
+      {accessDiagnostics?.error && <div className="card-error-box">
+        <strong>접근 진단 오류</strong>
+        <code>{accessDiagnostics.code || "NO_CODE"}</code>
+        <p>{accessDiagnostics.error}</p>
+      </div>}
     </section>
 
     <section className="panel card-flow-diagnostics">

@@ -328,3 +328,9 @@ label { display: grid; gap: 7px; font-size: 14px; font-weight: 700; color: #3439
 @media (max-width:720px) {
   .card-flow-head { align-items:flex-start; flex-direction:column; }
 }
+
+
+/* V2.4.4 business access diagnostics */
+.access-diagnostics { margin: 18px 0; }
+.access-grid { margin-top: 14px; }
+.access-role { margin-top: 10px !important; }

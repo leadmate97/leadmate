@@ -1,29 +1,26 @@
-# LeadMate V2.4.3
+# LeadMate V2.4.4
 
-카드 등록 버튼을 눌러도 토스 자동결제 등록창이 열리지 않는 상황을 진단하기 위한 패치입니다.
+V2.4.3 화면에서 `비즈니스 접근 권한이 없습니다.`가 표시되면서 카드 등록창이 열리지 않는 문제를 좁히고 수정한 패치입니다.
 
-## 추가 진단 단계
-`/billing`의 `카드 등록 진단` 영역에서 다음 흐름을 순서대로 확인합니다.
-
-1. 카드 등록 버튼 클릭
-2. Toss JavaScript SDK 로딩 여부
-3. `/api/billing/setup` 서버 호출
-4. clientKey / customerKey / successUrl / failUrl 확인
-5. `TossPayments(clientKey)` 초기화
-6. `payment({ customerKey })` 생성
-7. `requestBillingAuth()` 실행
-8. 발생한 오류 코드와 메시지 표시
-
-실제 Client/Secret 키 값은 화면에 노출하지 않습니다.
+## 수정 핵심
+- 결제 API의 business 접근권한 확인을 service-role 조회가 아니라 **현재 로그인 Supabase 세션**으로 변경
+- service-role은 실제 서버 결제 데이터 조회/저장에만 사용
+- `/billing`에 비즈니스 접근 진단 추가
+  - 로그인 세션
+  - business_members 멤버십
+  - 현재 역할(owner/admin/member)
+  - Supabase 서버키 연결
+  - business_subscriptions 레코드
+- generic `비즈니스 접근 권한이 없습니다.` 대신 구체적인 오류코드와 원인을 표시
 
 ## Supabase
 추가 SQL 없음.
 
-## 적용
-ZIP 내용을 기존 LeadMate 폴더에 덮어쓰고:
-- npm install
-- npm run build
-- git add/commit/push
+## 정상 기대값
+로그인 세션 ✓
+비즈니스 멤버십 ✓
+Supabase 서버 연결 ✓
+구독 레코드 ✓
+현재 역할 owner
 
-Vercel 배포 완료 후 `/billing`에서 `카드 등록` 버튼을 누르고
-`카드 등록 진단`에 표시되는 마지막 단계와 오류 코드를 확인합니다.
+이 상태에서 카드 등록을 누르면 Toss 자동결제 인증창 단계로 넘어가야 합니다.

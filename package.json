@@ -1,6 +1,6 @@
 {
-  "name": "leadmate-v2-4-3",
-  "version": "2.4.3",
+  "name": "leadmate-v2-4-4",
+  "version": "2.4.4",
   "private": true,
   "scripts": {
     "dev": "next dev",
