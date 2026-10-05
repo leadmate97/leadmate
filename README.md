@@ -1,26 +1,26 @@
-# LeadMate V2.4.4
+# LeadMate V2.4.5.1
 
-V2.4.3 화면에서 `비즈니스 접근 권한이 없습니다.`가 표시되면서 카드 등록창이 열리지 않는 문제를 좁히고 수정한 패치입니다.
+## 수정 원인
+`subscription_overrides` 테이블이 현재 Supabase 프로젝트에 없어서
+기존 V2.4.5 권한 SQL이 중간에 실패했습니다.
 
-## 수정 핵심
-- 결제 API의 business 접근권한 확인을 service-role 조회가 아니라 **현재 로그인 Supabase 세션**으로 변경
-- service-role은 실제 서버 결제 데이터 조회/저장에만 사용
-- `/billing`에 비즈니스 접근 진단 추가
-  - 로그인 세션
-  - business_members 멤버십
-  - 현재 역할(owner/admin/member)
-  - Supabase 서버키 연결
-  - business_subscriptions 레코드
-- generic `비즈니스 접근 권한이 없습니다.` 대신 구체적인 오류코드와 원인을 표시
+## 적용
+기존 `011_v2_4_5_service_role_permissions.sql`은 다시 실행하지 말고
+아래 파일만 실행하세요.
 
-## Supabase
-추가 SQL 없음.
+`supabase/migrations/011_v2_4_5_1_service_role_permissions_safe.sql`
 
-## 정상 기대값
-로그인 세션 ✓
-비즈니스 멤버십 ✓
-Supabase 서버 연결 ✓
-구독 레코드 ✓
-현재 역할 owner
+이 SQL은 각 테이블이 실제로 존재하는지 확인한 뒤
+존재하는 테이블에만 service_role 권한을 부여합니다.
 
-이 상태에서 카드 등록을 누르면 Toss 자동결제 인증창 단계로 넘어가야 합니다.
+따라서 현재 프로젝트에 없는 테이블 때문에 전체 migration이 실패하지 않습니다.
+
+## 기대 결과
+실행 후 `/billing` 새로고침 시:
+
+- 로그인 세션 ✓
+- 비즈니스 멤버십 ✓
+- Supabase 서버 연결 ✓
+- 구독 레코드 ✓
+
+가 되어야 합니다.
