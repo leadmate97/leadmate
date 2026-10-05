@@ -99,7 +99,7 @@ export async function calculateInvoice(businessId: string, planCode: PlanCode) {
   const admin = createAdminClient();
   const plan = getPlan(planCode);
 
-  const [{ data: referral }, { data: ledger }] = await Promise.all([
+  const [{ data: referral }, { data: ledger }, { data: overrides }] = await Promise.all([
     admin.from("referrals")
       .select("id,referred_discount_applied")
       .eq("referred_business_id", businessId)
@@ -107,12 +107,36 @@ export async function calculateInvoice(businessId: string, planCode: PlanCode) {
     admin.from("referral_credit_ledger")
       .select("amount_cents,status")
       .eq("business_id", businessId)
-      .neq("status", "cancelled")
+      .neq("status", "cancelled"),
+    admin.from("subscription_overrides")
+      .select("override_type,amount_cents,starts_at,ends_at,active")
+      .eq("business_id", businessId)
+      .eq("active", true)
   ]);
 
+  const now = Date.now();
+  const activeOverrides = (overrides || []).filter((item: any) => {
+    const started = !item.starts_at || new Date(item.starts_at).getTime() <= now;
+    const notEnded = !item.ends_at || new Date(item.ends_at).getTime() > now;
+    return started && notEnded;
+  });
+
+  const hasFreeOverride = activeOverrides.some((item: any) => item.override_type === "free");
+  const adminDiscount = activeOverrides
+    .filter((item: any) => item.override_type === "discount")
+    .reduce((sum: number, item: any) => sum + Math.max(Number(item.amount_cents || 0), 0), 0);
+
   const firstDiscount = referral && !referral.referred_discount_applied ? 10000 : 0;
-  const creditBalance = (ledger || []).reduce((sum: number, row: any) => sum + Number(row.amount_cents || 0), 0);
-  const afterReferral = Math.max(plan.priceMonthly - firstDiscount, 0);
+  const creditBalance = (ledger || []).reduce(
+    (sum: number, row: any) => sum + Number(row.amount_cents || 0),
+    0
+  );
+
+  const afterAdmin = hasFreeOverride
+    ? 0
+    : Math.max(plan.priceMonthly - adminDiscount, 0);
+
+  const afterReferral = Math.max(afterAdmin - firstDiscount, 0);
   const creditToApply = Math.min(Math.max(creditBalance, 0), afterReferral);
   const amountToCharge = Math.max(afterReferral - creditToApply, 0);
 
@@ -120,6 +144,8 @@ export async function calculateInvoice(businessId: string, planCode: PlanCode) {
     plan,
     referralId: referral?.id ?? null,
     firstDiscount,
+    adminDiscount,
+    hasFreeOverride,
     creditBalance: Math.max(creditBalance, 0),
     creditToApply,
     amountToCharge

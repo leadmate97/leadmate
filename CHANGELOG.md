@@ -1,8 +1,9 @@
 # CHANGELOG
 
-## V2.6
-- AppShell의 구형 nav 배열 완전 제거
-- 요금제/결제내역/지인추천 개별 사이드 메뉴 제거
-- `구독` 단일 메뉴로 통합
-- 관리자 계정에서만 `관리자` 메뉴 표시
-- 관리자 메뉴는 설정 아래 마지막 항목으로 표시
+## V2.8
+- 사이드바 `관리자 확인 중...` 문구 제거
+- 등록된 관리자 계정에서만 관리자 메뉴 표시
+- 관리자 권한을 서버 기준으로 판별
+- superadmin/admin/billing_manager/support 역할 기반 추가
+- 세부 권한(app_admin_permissions) 기반 추가
+- 구독 관리자 API를 billing.view / billing.manage 권한으로 분리

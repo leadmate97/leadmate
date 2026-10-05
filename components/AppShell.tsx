@@ -17,7 +17,7 @@ const baseNavItems = [
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { isAdmin, loading: adminLoading } = useAdminStatus();
+  const { isAdmin } = useAdminStatus();
 
   const navItems = [
     ...baseNavItems,
@@ -60,12 +60,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 </Link>
               );
             })}
-
-            {adminLoading && (
-              <span className="nav-admin-loading" aria-hidden="true">
-                관리자 확인 중…
-              </span>
-            )}
           </nav>
         </div>
 
