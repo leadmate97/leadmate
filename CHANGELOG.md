@@ -1,5 +1,11 @@
 # LeadMate Changelog
 
+## V2.2.2
+- 새 Supabase 프로젝트에서 `business_members` 접근 시 발생하는 `permission denied` 수정
+- V2 핵심 테이블에 `authenticated` 역할의 CRUD 권한을 명시적으로 부여
+- 기존 RLS 정책은 유지하여 사용자별/비즈니스별 데이터 격리 유지
+- DB migration `004_v2_2_2_permissions.sql` 추가
+
 ## V2.2.1
 - Vercel TypeScript build 오류 수정
 - 고객 상세 저장 시 비즈니스 설정 null 안전성 보강

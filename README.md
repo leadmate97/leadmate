@@ -1,4 +1,11 @@
-# LeadMate V2.1
+# LeadMate V2.2.2
+
+## 새 Supabase 계정에서 꼭 실행할 SQL
+이미 `001`, `002`, `003`을 실행했다면 **다시 실행하지 말고** 아래 파일만 Supabase SQL Editor에서 실행하세요.
+
+`supabase/migrations/004_v2_2_2_permissions.sql`
+
+이 migration은 새 프로젝트에서 발생할 수 있는 `permission denied for table business_members` 오류를 수정합니다. RLS는 유지됩니다.
 
 범용 영업 CRM LeadMate의 V2.1입니다.
 
