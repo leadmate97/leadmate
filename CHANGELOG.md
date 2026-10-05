@@ -1,6 +1,11 @@
 # CHANGELOG
 
-## V2.4.5.1
-- 존재하지 않는 subscription_overrides/app_admins 등으로 권한 migration이 실패하는 문제 수정
-- to_regclass()로 실제 존재하는 테이블에만 service_role grant 적용
-- schema_version 테이블이 없어도 migration이 실패하지 않도록 보강
+## V2.4.6
+- 결제내역 화면 추가
+- 자동결제 성공/실패 이력 표시
+- 추천 할인/크레딧 적용금액 표시
+- 미결제/체험 종료 접근상태 계산 API 추가
+- 결제 실패 경고 및 재시도 추가
+- 관리자 전체 구독 현황 화면 추가
+- 관리자 무료/할인 특권 시스템 추가
+- subscription_overrides/app_admins 테이블 안전 생성

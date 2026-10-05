@@ -14,6 +14,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     { href: "/customers", label: "고객" },
     { href: "/analytics", label: "통계" },
     { href: "/billing", label: "요금제" },
+    { href: "/billing/history", label: "결제내역" },
     { href: "/referrals", label: "지인추천" },
     { href: "/settings", label: "설정" }
   ];

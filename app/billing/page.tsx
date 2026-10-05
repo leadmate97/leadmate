@@ -33,6 +33,14 @@ type SubscriptionRow = {
 };
 
 
+type AccessState = {
+  accessAllowed: boolean;
+  freeOverride: boolean;
+  status: string;
+  nextBillingAt: string | null;
+  billingFailures: number;
+};
+
 type BillingDiagnostics = {
   configured: boolean;
   checks: {
@@ -95,6 +103,8 @@ export default function BillingPage() {
   const { settings, loading: settingsLoading } = useBusinessSettings();
   const [subscription, setSubscription] = useState<SubscriptionRow | null>(null);
   const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null);
+  const [accessState, setAccessState] = useState<AccessState | null>(null);
+  const [charging, setCharging] = useState(false);
   const [diagnostics, setDiagnostics] = useState<BillingDiagnostics | null>(null);
   const [accessDiagnostics, setAccessDiagnostics] = useState<AccessDiagnostics | null>(null);
   const [customerCount, setCustomerCount] = useState(0);
@@ -132,6 +142,11 @@ export default function BillingPage() {
       setSubscription((sub as SubscriptionRow | null) ?? null);
       setCustomerCount(count ?? 0);
       await loadBillingStatus(settings.business_id);
+      try {
+        const accessResponse = await fetch(`/api/billing/access?businessId=${encodeURIComponent(settings.business_id)}`, { cache: "no-store" });
+        const accessResult = await accessResponse.json();
+        if (accessResponse.ok) setAccessState(accessResult);
+      } catch {}
       try {
         const [diagResponse, accessResponse] = await Promise.all([
           fetch("/api/billing/diagnostics", { cache: "no-store" }),
@@ -242,6 +257,27 @@ export default function BillingPage() {
       setMessage(`${info.code ? `[${info.code}] ` : ""}${info.message}`);
       addCardStep("최종 결과", false, `${info.code ? `${info.code} · ` : ""}${info.message}`);
       setRegistering(false);
+    }
+  }
+
+  async function testCharge() {
+    if (!settings) return;
+    setCharging(true); setMessage("");
+    try {
+      const response = await fetch("/api/billing/charge-now", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId: settings.business_id })
+      });
+      const result = await response.json();
+      if (!response.ok) setMessage(`${result.code ? `[${result.code}] ` : ""}${result.error || "결제 테스트 실패"}`);
+      else if (result.skipped) setMessage(`결제 테스트: ${result.reason}`);
+      else {
+        setMessage(`결제 테스트 완료 · 실제 청구 ${formatWon(result.amountCharged || 0)} · 크레딧 ${formatWon(result.creditApplied || 0)} 적용`);
+        await loadBillingStatus(settings.business_id);
+      }
+    } finally {
+      setCharging(false);
     }
   }
 
@@ -405,6 +441,27 @@ export default function BillingPage() {
           {lastCardError.name && <span>{lastCardError.name}</span>}
         </div>
       )}
+    </section>
+
+    {accessState && !accessState.accessAllowed && (
+      <section className="panel subscription-lock-warning">
+        <div><span className="billing-kicker">이용 제한 예정</span><h2>구독 상태를 확인해주세요</h2><p>체험기간 종료 또는 미결제로 인해 일부 기능 제한 대상입니다. 결제수단과 구독상태를 확인해주세요.</p></div>
+      </section>
+    )}
+
+    {accessState && accessState.billingFailures > 0 && (
+      <section className="panel billing-failure-warning">
+        <div><strong>최근 자동결제 실패 {accessState.billingFailures}회</strong><p>카드 정보 또는 한도를 확인한 뒤 다시 결제해주세요.</p></div>
+        <button className="button primary" disabled={charging} onClick={testCharge}>{charging ? "결제 확인 중..." : "결제 다시 시도"}</button>
+      </section>
+    )}
+
+    <section className="panel billing-links">
+      <div><strong>결제 관리</strong><p>결제내역과 추천 할인·크레딧 적용 결과를 확인할 수 있습니다.</p></div>
+      <div className="button-row">
+        <Link className="button ghost" href="/billing/history">결제내역 보기</Link>
+        <button className="button ghost" disabled={charging} onClick={testCharge}>{charging ? "테스트 중..." : "결제일 확인"}</button>
+      </div>
     </section>
 
     <section className="pricing-grid">

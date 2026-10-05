@@ -1,26 +1,41 @@
-# LeadMate V2.4.5.1
+# LeadMate V2.4.6
 
-## 수정 원인
-`subscription_overrides` 테이블이 현재 Supabase 프로젝트에 없어서
-기존 V2.4.5 권한 SQL이 중간에 실패했습니다.
+## 이번 버전
+자동결제 등록 이후 운영에 필요한 기능을 추가했습니다.
 
-## 적용
-기존 `011_v2_4_5_service_role_permissions.sql`은 다시 실행하지 말고
-아래 파일만 실행하세요.
+### 사용자
+- 결제내역 페이지 `/billing/history`
+- 결제 성공/실패 상태 표시
+- 추천 첫 결제 할인 및 크레딧 적용액 표시
+- 다음 결제 예정일 확인
+- 결제 실패 횟수 경고
+- 결제 다시 시도 버튼
+- 체험 종료/미결제 시 이용 제한 상태 표시 기반
 
-`supabase/migrations/011_v2_4_5_1_service_role_permissions_safe.sql`
+### 관리자
+- `/admin/subscriptions`
+- 전체 사업장 구독 상태 확인
+- 활성/체험/미결제 통계
+- 무료 이용 특권 부여
+- 할인 부여
+- 관리자 특권 해제
 
-이 SQL은 각 테이블이 실제로 존재하는지 확인한 뒤
-존재하는 테이블에만 service_role 권한을 부여합니다.
+### Supabase
+이번에 새로 실행할 SQL:
+`supabase/migrations/012_v2_4_6_billing_admin_access.sql`
 
-따라서 현재 프로젝트에 없는 테이블 때문에 전체 migration이 실패하지 않습니다.
+기존 SQL은 다시 실행하지 마세요.
 
-## 기대 결과
-실행 후 `/billing` 새로고침 시:
+### 관리자 계정 등록
+본인의 Supabase Auth user UUID를 확인한 뒤 한 번만 실행:
 
-- 로그인 세션 ✓
-- 비즈니스 멤버십 ✓
-- Supabase 서버 연결 ✓
-- 구독 레코드 ✓
+```sql
+insert into public.app_admins(user_id, role)
+values ('본인-auth-user-uuid', 'superadmin')
+on conflict (user_id) do update set role = excluded.role;
+```
 
-가 되어야 합니다.
+### 중요
+V2.4.6은 "접근 제한 상태"를 계산하고 UI에 경고하는 단계입니다.
+실제 CRM 페이지 전체를 강제로 잠그는 전역 가드는 다음 마이너 버전에서 적용하는 것이 안전합니다.
+테스트 중 관리자가 본인 계정을 실수로 잠그는 것을 방지하기 위해 이번 버전에서는 경고/상태 중심으로 구현했습니다.

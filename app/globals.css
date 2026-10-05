@@ -334,3 +334,40 @@ label { display: grid; gap: 7px; font-size: 14px; font-weight: 700; color: #3439
 .access-diagnostics { margin: 18px 0; }
 .access-grid { margin-top: 14px; }
 .access-role { margin-top: 10px !important; }
+
+
+/* V2.4.6 billing history/admin/access */
+.billing-history-list { display:grid; gap:12px; }
+.billing-history-item { display:grid; grid-template-columns:1fr auto; gap:14px; padding:16px 0; border-top:1px solid var(--line); }
+.billing-history-item:first-child { border-top:0; }
+.billing-history-item > div:first-child { display:grid; gap:4px; }
+.billing-history-item span, .billing-history-item small { color:var(--muted); font-size:12px; }
+.billing-history-money { display:grid; justify-items:end; gap:4px; }
+.billing-history-error { grid-column:1/-1; padding:10px 12px; border-radius:10px; background:#fff1f0; color:#b42318; }
+.billing-history-error code { margin-right:8px; }
+.admin-sub-stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin-bottom:18px; }
+.admin-sub-stats article { display:grid; gap:6px; }
+.admin-sub-stats span { color:var(--muted); font-size:12px; }
+.admin-sub-stats strong { font-size:24px; }
+.admin-override-panel { margin-bottom:18px; }
+.admin-override-grid { display:grid; grid-template-columns:1fr 180px 1fr; gap:12px; margin:14px 0; }
+.admin-override-grid label { display:grid; gap:6px; font-size:12px; color:var(--muted); }
+.admin-sub-list { display:grid; gap:10px; margin-top:14px; }
+.admin-sub-row { display:grid; grid-template-columns:1.4fr repeat(5,minmax(90px,1fr)); gap:12px; align-items:center; padding:12px 0; border-top:1px solid var(--line); }
+.admin-sub-row > div { display:grid; gap:3px; }
+.admin-sub-row span { color:var(--muted); font-size:11px; }
+.subscription-lock-warning { margin:18px 0; border-color:#fecaca; background:#fff7f7; }
+.subscription-lock-warning h2 { margin:5px 0; color:#b42318; }
+.billing-failure-warning, .billing-links { display:flex; justify-content:space-between; align-items:center; gap:16px; margin:18px 0; }
+.billing-failure-warning p, .billing-links p { margin:5px 0 0; color:var(--muted); }
+@media (max-width:900px) {
+  .admin-sub-stats { grid-template-columns:1fr 1fr; }
+  .admin-override-grid { grid-template-columns:1fr; }
+  .admin-sub-row { grid-template-columns:1fr 1fr; }
+}
+@media (max-width:620px) {
+  .billing-history-item { grid-template-columns:1fr; }
+  .billing-history-money { justify-items:start; }
+  .admin-sub-stats { grid-template-columns:1fr; }
+  .billing-failure-warning, .billing-links { align-items:stretch; flex-direction:column; }
+}
