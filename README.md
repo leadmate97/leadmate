@@ -1,31 +1,53 @@
-# LeadMate V2.3.5
+# LeadMate V2.4
 
-## 이번 버전
-추천 시스템을 실제 화면에 연결했습니다.
+## 핵심 변경
+- Toss Payments 자동결제(빌링) 카드 등록
+- 빌링키 서버 저장
+- 7일 무료체험 종료 후 월 자동결제 기반
+- 개인형 39,000원 / 팀·사업장형 159,000원
+- 신규 추천자 첫 결제 10,000원 할인
+- 기존 추천인의 누적 크레딧을 결제 전에 자동 차감
+- 크레딧 초과분 다음 달 이월
+- 결제 성공/실패 상태 기록
+- 기간 종료 후 자동결제 해지
+- Vercel Cron으로 매일 결제 대상 확인
 
-### 사용자 기능
-- 내 추천 ID 표시 및 복사
-- 추천 가입자 수
-- 보상 확정 인원
-- 사용 가능 추천 크레딧
-- 다음 구독료 예상 차감액
-- 예상 결제금액
-- 남는 크레딧 다음 달 이월 표시
-- 온보딩에서 지인 ID 입력
-- 신규 가입자 첫 유료 구독 10,000원 할인 정책
-- 기존 추천인: 추천 사용자의 첫 유료 결제 완료 시 5,000원 크레딧
+## 이번에 Supabase에서 실행할 SQL
+기존 001~009를 다시 실행하지 말고:
+`supabase/migrations/010_v2_4_toss_recurring_billing.sql`
 
-### 관리자 기능
-- `/admin/referrals`에서 관리자 전용 추천 크레딧 수동 조정
-- app_admins에 등록된 계정만 접근
+## Vercel 환경변수
+기존 Supabase 2개 외에 아래를 추가합니다.
 
-## Supabase
-현재 계정에서 V2.3.4.1 SQL까지 실행했다면 새로 실행할 것은 아래 하나입니다.
+### Config
+`NEXT_PUBLIC_TOSS_CLIENT_KEY`
 
-`supabase/migrations/009_v2_3_5_referral_ui_admin.sql`
+### Secret
+`SUPABASE_SERVICE_ROLE_KEY`
+`TOSS_SECRET_KEY`
+`CRON_SECRET`
 
-기존 001~008은 다시 실행하지 마세요.
+주의:
+- `TOSS_SECRET_KEY`와 `SUPABASE_SERVICE_ROLE_KEY`는 절대 NEXT_PUBLIC_ 접두사를 붙이지 않습니다.
+- GitHub에 실제 키를 넣지 않습니다.
+- 토스페이먼츠 자동결제는 테스트 키로 먼저 검증하세요.
+- 실제 운영 자동결제는 토스페이먼츠의 자동결제 계약/심사가 필요합니다.
 
-## 중요
-실제 결제 성공 시 `grant_referrer_reward()`를 호출하는 것은 V2.4 정기결제 webhook에서 연결합니다.
-현재 V2.3.5는 추천 UI와 크레딧 표시/관리 준비 단계입니다.
+## 결제 흐름
+1. 사용자가 요금제를 선택
+2. `자동결제 카드 등록`
+3. Toss 결제창에서 카드 인증
+4. 서버에서 authKey로 billingKey 발급
+5. billingKey는 서버 전용 테이블에 저장
+6. 무료체험 종료일에 Cron이 결제
+7. 추천 첫 결제 할인/누적 크레딧 차감
+8. 결제 성공 시 다음 결제일을 1개월 후로 설정
+9. 실패 시 past_due 상태 및 실패 이력 기록
+
+## 테스트
+환경변수 입력 후:
+`npm install`
+`npm run build`
+`npm run dev`
+
+결제페이지 `/billing`에서 테스트 카드 등록을 진행합니다.

@@ -31,6 +31,10 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser();
   const pathname = request.nextUrl.pathname;
+
+  // Vercel Cron은 로그인 세션 없이 CRON_SECRET로 인증합니다.
+  if (pathname.startsWith("/api/billing/cron")) return response;
+
   const isLoginPage = pathname.startsWith("/login");
 
   if (!user && !isLoginPage) {
