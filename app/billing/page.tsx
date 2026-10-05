@@ -194,7 +194,7 @@ export default function BillingPage() {
         {!billingStatus?.configured && <p className="billing-warning">Vercel 환경변수에 Toss Payments 키와 Supabase service-role 키 설정이 필요합니다.</p>}
       </div>
       <button className="button primary" disabled={registering || !billingStatus?.configured} onClick={registerCard}>
-        {registering ? "등록창 여는 중..." : card ? "카드 다시 등록" : "자동결제 카드 등록"}
+        {registering ? "등록창 여는 중..." : card ? "카드 변경" : "카드 등록"}
       </button>
     </section>
 
