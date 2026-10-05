@@ -1,10 +1,7 @@
 # CHANGELOG
 
-## V2.4.8
-- 요금제/결제내역/지인추천 메뉴를 `구독` 하나로 통합
-- /billing 페이지에 요금제 + 추천 + 결제내역 통합
-- 일반 사용자 사이드 메뉴 단순화
-- 관리자 메뉴를 설정 아래 별도 사이드 메뉴로 분리
-- 관리자 메뉴는 app_admins 계정에서만 표시
-- 일반 구독 화면에서 관리자 콘솔 제거
-- 기존 /billing/history, /referrals 경로는 /billing으로 리디렉트
+## V2.5
+- AppShell baseNavItems TypeScript build error 수정
+- 관리자 사이드 메뉴 조건부 표시 정상화
+- 버전 체계 V2.5 형식으로 단순화
+- 기존 통합 구독 UI 유지

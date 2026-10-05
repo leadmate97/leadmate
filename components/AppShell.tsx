@@ -6,12 +6,21 @@ import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { APP_VERSION } from "@/lib/version";
 
+const baseNavItems = [
+  { href: "/", label: "홈" },
+  { href: "/customers", label: "고객" },
+  { href: "/stats", label: "통계" },
+  { href: "/billing", label: "구독" },
+  { href: "/settings", label: "설정" },
+];
+
+
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const { isAdmin } = useAdminStatus();
   const navItems = isAdmin
     ? [...baseNavItems, { href: "/admin/subscriptions", label: "관리자" }]
     : baseNavItems;
-  const pathname = usePathname();
+const pathname = usePathname();
   const router = useRouter();
   async function logout() { const supabase = createClient(); await supabase.auth.signOut(); router.replace("/login"); router.refresh(); }
   const nav = [
