@@ -1,31 +1,53 @@
-# LeadMate V2.8
+# LeadMate V3.0
 
-## 관리자 메뉴 표시 방식
-- 사이드바에서 `관리자 확인 중...` 문구를 완전히 제거했습니다.
-- 일반 사용자는 아무 표시도 보이지 않습니다.
-- `app_admins`에 등록된 계정으로 로그인했을 때만 `관리자` 메뉴가 조용히 추가됩니다.
-- 관리자 여부를 UUID로 프론트 코드에 하드코딩하지 않습니다.
+V2.9의 미결제/체험종료 이용 제한과 V3.0의 운영 관리자 기능을 한 번에 포함한 출시 준비 버전입니다.
 
-## 확장 가능한 관리자 권한
-사업이 커졌을 때 계정별 역할을 나눌 수 있도록 기반을 추가했습니다.
+## V2.9 기능 포함: 구독 접근 제한
+- 7일 무료체험 중: 정상 사용
+- 정상 유료 구독: 정상 사용
+- 관리자 무료 이용 특권: 정상 사용
+- 관리자 계정: 정상 사용
+- 체험 종료/구독 없음/미결제: 홈·고객·통계 접근 제한
+- 제한 중에도 구독/설정은 접근 가능
+- 구독 관리 화면으로 이동 안내
 
-기본 역할:
-- `superadmin`: 전체 권한
-- `admin`: 구독/사용자 관리
-- `billing_manager`: 구독/결제 관리
-- `support`: 조회 전용
+## V3.0 관리자 운영
+`/admin`
+- 전체 사업장
+- 유료 구독
+- 무료 체험
+- 미결제
+- 예상 MRR
+- 이번 달 결제금액
 
-권한 키:
-- `billing.view`
-- `billing.manage`
-- `users.manage`
-- `system.manage`
+`/admin/subscriptions`
+- 기존 무료 이용/할인/특권 관리
 
-추가로 `app_admin_permissions`에서 특정 관리자에게 권한을 개별 허용/차단할 수 있습니다.
+`/admin/users`
+- superadmin 전용
+- 가입 이메일로 관리자 추가
+- 역할 변경
+- 관리자 권한 제거
+
+관리자 역할:
+- superadmin: 전체
+- admin: 운영 관리
+- billing_manager: 결제/구독
+- support: 조회
+
+## 출시 준비
+- 결제 3일 전 구독 화면 안내
+- 이용약관 `/terms`
+- 개인정보처리방침 `/privacy`
+- 환불·해지 정책 `/refund`
+
+법률 문서는 출시 준비용 기본 문안이므로 실제 상용화 전 사업자 정보와 법률 검토가 필요합니다.
 
 ## Supabase
-이번에는 아래 SQL만 새로 실행하세요.
+V2.8의 `013_v2_8_admin_roles_permissions.sql`까지 실행되어 있다면
+이번에는 아래 SQL만 실행합니다.
 
-`supabase/migrations/013_v2_8_admin_roles_permissions.sql`
+`supabase/migrations/014_v3_0_operations_hardening.sql`
 
-기존 superadmin 계정은 그대로 유지됩니다.
+## 적용
+ZIP을 기존 Git 폴더에 덮어쓴 뒤 build → commit → push 합니다.

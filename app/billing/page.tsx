@@ -153,6 +153,9 @@ export default function BillingPage() {
   const trialLeft = daysRemaining(subscription?.trial_ends_at);
   const card = billingStatus?.paymentMethod;
   const nextBillingAt = billingStatus?.subscription?.next_billing_at || subscription?.trial_ends_at;
+  const billingDaysLeft = nextBillingAt
+    ? Math.ceil((new Date(nextBillingAt).getTime() - Date.now()) / 86400000)
+    : null;
   const appliedCredit = Math.min(credit, activePlan.priceMonthly);
   const expectedCharge = Math.max(activePlan.priceMonthly - appliedCredit, 0);
   const carryOver = Math.max(credit - activePlan.priceMonthly, 0);
@@ -265,6 +268,16 @@ export default function BillingPage() {
     </div>
 
     {message && <p className="notice billing-notice">{message}</p>}
+
+    {billingDaysLeft !== null && billingDaysLeft >= 0 && billingDaysLeft <= 3 && (
+      <section className="panel billing-upcoming">
+        <div>
+          <span className="billing-kicker">결제 예정 안내</span>
+          <strong>{billingDaysLeft === 0 ? "오늘" : `${billingDaysLeft}일 후`} 자동결제 예정</strong>
+          <p>등록된 카드와 추천 크레딧을 기준으로 결제가 처리됩니다.</p>
+        </div>
+      </section>
+    )}
 
     <section className="subscription-overview-grid">
       <article className="panel subscription-summary-card">
