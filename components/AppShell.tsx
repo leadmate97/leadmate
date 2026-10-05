@@ -13,6 +13,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     { href: "/", label: "홈" },
     { href: "/customers", label: "고객" },
     { href: "/analytics", label: "통계" },
+    { href: "/billing", label: "요금제" },
+    { href: "/referrals", label: "지인추천" },
     { href: "/settings", label: "설정" }
   ];
   return <div className="app-shell">

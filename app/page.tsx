@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { getPreset } from "@/lib/business";
 import { useBusinessSettings } from "@/lib/useBusinessSettings";
 import type { Customer } from "@/lib/types";
+import { daysRemaining } from "@/lib/subscription";
 
 function isToday(value: string | null) {
   if (!value) return false;
@@ -20,13 +21,20 @@ export default function DashboardPage() {
   const { settings, loading: settingsLoading } = useBusinessSettings();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null);
+  const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null);
 
   useEffect(() => {
     if (settingsLoading || !settings) return;
     (async () => {
       const supabase = createClient();
-      const { data } = await supabase.from("customers").select("*").order("created_at", { ascending: false });
+      const [{ data }, { data: subscription }] = await Promise.all([
+        supabase.from("customers").select("*").order("created_at", { ascending: false }),
+        supabase.from("business_subscriptions").select("status,trial_ends_at").eq("business_id", settings.business_id).maybeSingle()
+      ]);
       setCustomers((data as Customer[]) ?? []);
+      setTrialEndsAt(subscription?.trial_ends_at ?? null);
+      setSubscriptionStatus(subscription?.status ?? null);
       setLoading(false);
     })();
   }, [settings, settingsLoading]);
@@ -59,6 +67,8 @@ export default function DashboardPage() {
         </div>
         <Link href="/customers/new" className="button primary">+ 고객 추가</Link>
       </div>
+
+      {subscriptionStatus === "trialing" && <Link href="/billing" className="trial-banner"><span>7일 무료 체험 중</span><strong>{daysRemaining(trialEndsAt)}일 남음</strong><em>요금제 보기 →</em></Link>}
 
       <section className="stat-grid">
         <div className="stat-card"><span>{preset.dashboard.newLabel}</span><strong>{stats.fresh}</strong></div>
