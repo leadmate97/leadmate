@@ -32,6 +32,26 @@ type SubscriptionRow = {
   cancel_at_period_end: boolean;
 };
 
+
+type BillingDiagnostics = {
+  configured: boolean;
+  checks: {
+    tossClientKey: boolean;
+    tossSecretKey: boolean;
+    supabaseServiceRoleKey: boolean;
+    cronSecret: boolean;
+    tossPairMatches: boolean;
+  };
+  keyTypes: {
+    tossClient: string;
+    tossSecret: string;
+    supabaseServiceRole: string;
+    cronSecret: string;
+  };
+  environment: string;
+  warnings: string[];
+};
+
 type BillingStatus = {
   configured: boolean;
   paymentMethod: null | {
@@ -56,6 +76,7 @@ export default function BillingPage() {
   const { settings, loading: settingsLoading } = useBusinessSettings();
   const [subscription, setSubscription] = useState<SubscriptionRow | null>(null);
   const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null);
+  const [diagnostics, setDiagnostics] = useState<BillingDiagnostics | null>(null);
   const [customerCount, setCustomerCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
@@ -80,6 +101,11 @@ export default function BillingPage() {
       setSubscription((sub as SubscriptionRow | null) ?? null);
       setCustomerCount(count ?? 0);
       await loadBillingStatus(settings.business_id);
+      try {
+        const diagResponse = await fetch("/api/billing/diagnostics", { cache: "no-store" });
+        const diagResult = await diagResponse.json();
+        if (diagResponse.ok) setDiagnostics(diagResult);
+      } catch {}
       setLoading(false);
     })();
   }, [settings, settingsLoading]);
@@ -191,7 +217,23 @@ export default function BillingPage() {
           <h2>결제수단을 등록해주세요</h2>
           <p>무료 체험 종료 후 선택한 요금제로 자동결제됩니다.</p>
         </>}
-        {!billingStatus?.configured && <p className="billing-warning">Vercel 환경변수에 Toss Payments 키와 Supabase service-role 키 설정이 필요합니다.</p>}
+        {!billingStatus?.configured && <p className="billing-warning">결제 환경변수 확인이 필요합니다.</p>}
+        {diagnostics && <div className="billing-diagnostics">
+          <div className="diag-title">
+            <strong>결제 환경 진단</strong>
+            <span>{diagnostics.environment}</span>
+          </div>
+          <div className="diag-grid">
+            <span className={diagnostics.checks.tossClientKey ? "diag-ok" : "diag-bad"}>Toss Client Key {diagnostics.checks.tossClientKey ? "✓" : "✕"}</span>
+            <span className={diagnostics.checks.tossSecretKey ? "diag-ok" : "diag-bad"}>Toss Secret Key {diagnostics.checks.tossSecretKey ? "✓" : "✕"}</span>
+            <span className={diagnostics.checks.supabaseServiceRoleKey ? "diag-ok" : "diag-bad"}>Supabase Server Key {diagnostics.checks.supabaseServiceRoleKey ? "✓" : "✕"}</span>
+            <span className={diagnostics.checks.cronSecret ? "diag-ok" : "diag-bad"}>Cron Secret {diagnostics.checks.cronSecret ? "✓" : "✕"}</span>
+            <span className={diagnostics.checks.tossPairMatches ? "diag-ok" : "diag-bad"}>Toss Key Pair {diagnostics.checks.tossPairMatches ? "✓" : "✕"}</span>
+          </div>
+          {diagnostics.warnings.length > 0 && <div className="diag-warnings">
+            {diagnostics.warnings.map((warning) => <p key={warning}>• {warning}</p>)}
+          </div>}
+        </div>}
       </div>
       <button className="button primary" disabled={registering || !billingStatus?.configured} onClick={registerCard}>
         {registering ? "등록창 여는 중..." : card ? "카드 변경" : "카드 등록"}

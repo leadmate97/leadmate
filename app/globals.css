@@ -254,3 +254,53 @@ label { display: grid; gap: 7px; font-size: 14px; font-weight: 700; color: #3439
     min-width: 0;
   }
 }
+
+
+/* V2.4.2 billing environment diagnostics */
+.billing-diagnostics {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #f8fafc;
+}
+.diag-title {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:10px;
+}
+.diag-title span {
+  color: var(--muted);
+  font-size: 12px;
+}
+.diag-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
+  gap:8px;
+}
+.diag-grid span {
+  padding:9px 10px;
+  border-radius:10px;
+  font-size:13px;
+  font-weight:700;
+}
+.diag-ok {
+  background:#ecfdf3;
+  color:#067647;
+}
+.diag-bad {
+  background:#fff1f0;
+  color:#b42318;
+}
+.diag-warnings {
+  margin-top:10px;
+  padding-top:10px;
+  border-top:1px solid var(--line);
+}
+.diag-warnings p {
+  margin:4px 0 !important;
+  color:#b54708 !important;
+  font-size:12px;
+}
