@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import Script from "next/script";
 import { useEffect, useMemo, useState } from "react";
 import AppShell from "@/components/AppShell";
@@ -53,22 +52,32 @@ type BillingStatus = {
   };
 };
 
-type AccessState = {
-  accessAllowed: boolean;
-  freeOverride: boolean;
-  status: string;
-  nextBillingAt: string | null;
-  billingFailures: number;
+type ReferralRow = {
+  id: string;
+  referred_business_id: string;
+  referrer_discount_applied: boolean;
+  created_at: string;
 };
 
-type AdminRow = {
-  business_id: string;
-  plan_code: string;
+type Tx = {
+  id: string;
+  order_id: string;
+  amount_cents: number;
+  discount_cents: number;
+  credit_applied_cents: number;
   status: string;
-  next_billing_at: string | null;
-  last_payment_amount: number | null;
-  billing_failures: number;
-  business: { id: string; name: string; referral_code: string | null } | null;
+  scheduled_for: string;
+  paid_at: string | null;
+  error_code: string | null;
+  error_message: string | null;
+};
+
+const TX_STATUS: Record<string,string> = {
+  processing: "처리 중",
+  paid: "결제 완료",
+  credit_only: "크레딧 결제",
+  failed: "결제 실패",
+  canceled: "취소"
 };
 
 export default function BillingPage() {
@@ -76,72 +85,60 @@ export default function BillingPage() {
 
   const [subscription, setSubscription] = useState<SubscriptionRow | null>(null);
   const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null);
-  const [accessState, setAccessState] = useState<AccessState | null>(null);
   const [customerCount, setCustomerCount] = useState(0);
+  const [referralCode, setReferralCode] = useState("");
+  const [referrals, setReferrals] = useState<ReferralRow[]>([]);
+  const [credit, setCredit] = useState(0);
+  const [transactions, setTransactions] = useState<Tx[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState<PlanCode | null>(null);
   const [registering, setRegistering] = useState(false);
   const [cancelSaving, setCancelSaving] = useState(false);
   const [sdkLoaded, setSdkLoaded] = useState(false);
-
-  // 관리자 전용 상태
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [adminRole, setAdminRole] = useState<string | null>(null);
-  const [adminRows, setAdminRows] = useState<AdminRow[]>([]);
-  const [adminSelected, setAdminSelected] = useState("");
-  const [adminDiscount, setAdminDiscount] = useState("10000");
-  const [adminReason, setAdminReason] = useState("관리자 설정");
-  const [adminMessage, setAdminMessage] = useState("");
-  const [adminSaving, setAdminSaving] = useState(false);
-
-  async function loadBillingStatus(businessId: string) {
-    const response = await fetch(`/api/billing/status?businessId=${encodeURIComponent(businessId)}`, { cache: "no-store" });
-    const result = await response.json();
-    if (response.ok) setBillingStatus(result);
-  }
-
-  async function loadAdminRows() {
-    const response = await fetch("/api/admin/subscriptions", { cache: "no-store" });
-    if (!response.ok) return;
-    const result = await response.json();
-    const rows = result.rows || [];
-    setAdminRows(rows);
-    if (!adminSelected && rows[0]) setAdminSelected(rows[0].business_id);
-  }
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const response = await fetch("/api/admin/me", { cache: "no-store" });
-        const result = await response.json();
-        setIsAdmin(Boolean(result.isAdmin));
-        setAdminRole(result.role || null);
-        if (result.isAdmin) await loadAdminRows();
-      } catch {
-        setIsAdmin(false);
-      }
-    })();
-  }, []);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (settingsLoading || !settings) return;
 
     (async () => {
       const supabase = createClient();
-      const [{ data: sub }, { count }] = await Promise.all([
+
+      const [
+        { data: sub },
+        { count },
+        { data: business },
+        { data: referralRows },
+        { data: balanceRow },
+        historyResponse,
+        statusResponse
+      ] = await Promise.all([
         supabase.from("business_subscriptions").select("*").eq("business_id", settings.business_id).maybeSingle(),
-        supabase.from("customers").select("id", { count: "exact", head: true }).eq("business_id", settings.business_id)
+        supabase.from("customers").select("id", { count: "exact", head: true }).eq("business_id", settings.business_id),
+        supabase.from("businesses").select("referral_code").eq("id", settings.business_id).single(),
+        supabase.from("referrals")
+          .select("id,referred_business_id,referrer_discount_applied,created_at")
+          .eq("referrer_business_id", settings.business_id)
+          .order("created_at", { ascending: false }),
+        supabase.from("referral_credit_balance").select("balance_cents").eq("business_id", settings.business_id).maybeSingle(),
+        fetch(`/api/billing/history?businessId=${encodeURIComponent(settings.business_id)}`, { cache: "no-store" }),
+        fetch(`/api/billing/status?businessId=${encodeURIComponent(settings.business_id)}`, { cache: "no-store" })
       ]);
 
       setSubscription((sub as SubscriptionRow | null) ?? null);
       setCustomerCount(count ?? 0);
-      await loadBillingStatus(settings.business_id);
+      setReferralCode(business?.referral_code || "");
+      setReferrals((referralRows as ReferralRow[] | null) || []);
+      setCredit(Number(balanceRow?.balance_cents || 0));
 
       try {
-        const accessResponse = await fetch(`/api/billing/access?businessId=${encodeURIComponent(settings.business_id)}`, { cache: "no-store" });
-        const accessResult = await accessResponse.json();
-        if (accessResponse.ok) setAccessState(accessResult);
+        const history = await historyResponse.json();
+        if (historyResponse.ok) setTransactions(history.transactions || []);
+      } catch {}
+
+      try {
+        const status = await statusResponse.json();
+        if (statusResponse.ok) setBillingStatus(status);
       } catch {}
 
       setLoading(false);
@@ -154,6 +151,21 @@ export default function BillingPage() {
   );
 
   const trialLeft = daysRemaining(subscription?.trial_ends_at);
+  const card = billingStatus?.paymentMethod;
+  const nextBillingAt = billingStatus?.subscription?.next_billing_at || subscription?.trial_ends_at;
+  const appliedCredit = Math.min(credit, activePlan.priceMonthly);
+  const expectedCharge = Math.max(activePlan.priceMonthly - appliedCredit, 0);
+  const carryOver = Math.max(credit - activePlan.priceMonthly, 0);
+  const confirmedReferrals = referrals.filter((r) => r.referrer_discount_applied).length;
+
+  async function copyReferralCode() {
+    if (!referralCode) return;
+    try {
+      await navigator.clipboard.writeText(referralCode);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1200);
+    } catch {}
+  }
 
   async function choosePlan(code: PlanCode) {
     if (!settings || !subscription) return;
@@ -166,9 +178,8 @@ export default function BillingPage() {
       .update({ pending_plan_code: code })
       .eq("business_id", settings.business_id);
 
-    if (error) {
-      setMessage(error.message);
-    } else {
+    if (error) setMessage(error.message);
+    else {
       setSubscription({ ...subscription, pending_plan_code: code });
       setMessage(`${getPlan(code).name} 요금제를 선택했습니다. 다음 결제부터 적용됩니다.`);
     }
@@ -224,9 +235,8 @@ export default function BillingPage() {
 
     const result = await response.json();
 
-    if (!response.ok) {
-      setMessage(result.error || "구독 설정 변경에 실패했습니다.");
-    } else {
+    if (!response.ok) setMessage(result.error || "구독 설정 변경에 실패했습니다.");
+    else {
       setSubscription({ ...subscription, cancel_at_period_end: nextValue });
       setMessage(nextValue ? "현재 이용기간 종료 후 자동결제를 해지합니다." : "자동결제를 다시 유지합니다.");
     }
@@ -234,55 +244,9 @@ export default function BillingPage() {
     setCancelSaving(false);
   }
 
-  async function applyAdminOverride(action: "free" | "discount" | "clear_overrides") {
-    if (!adminSelected) return;
-
-    setAdminSaving(true);
-    setAdminMessage("");
-
-    const response = await fetch("/api/admin/subscriptions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        businessId: adminSelected,
-        action,
-        amountCents: action === "discount" ? Number(adminDiscount) : undefined,
-        reason: adminReason
-      })
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      setAdminMessage(result.error || "관리자 설정에 실패했습니다.");
-    } else {
-      setAdminMessage(
-        action === "free"
-          ? "무료 이용 특권을 부여했습니다."
-          : action === "discount"
-            ? "할인을 부여했습니다."
-            : "관리자 특권을 해제했습니다."
-      );
-      await loadAdminRows();
-    }
-
-    setAdminSaving(false);
-  }
-
   if (settingsLoading || loading || !settings) {
     return <AppShell><p>구독 정보를 불러오는 중...</p></AppShell>;
   }
-
-  const card = billingStatus?.paymentMethod;
-  const nextBillingAt = billingStatus?.subscription?.next_billing_at || subscription?.trial_ends_at;
-  const billingFailures = accessState?.billingFailures || 0;
-
-  const adminStats = {
-    total: adminRows.length,
-    active: adminRows.filter((row) => row.status === "active").length,
-    trialing: adminRows.filter((row) => row.status === "trialing").length,
-    pastDue: adminRows.filter((row) => row.status === "past_due").length
-  };
 
   return <AppShell>
     <Script
@@ -295,22 +259,16 @@ export default function BillingPage() {
     <div className="page-head">
       <div>
         <p className="eyebrow">SUBSCRIPTION</p>
-        <h1>요금제 및 구독</h1>
-        <p>7일 무료 체험 후 등록된 카드로 매월 자동결제됩니다. 추천 크레딧은 결제 전에 자동 차감됩니다.</p>
+        <h1>구독 관리</h1>
+        <p>요금제, 결제내역, 지인추천 혜택을 한 곳에서 관리합니다.</p>
       </div>
     </div>
 
-    <section className="referral-promo panel">
-      <div>
-        <strong>지인 추천으로 구독료 절약</strong>
-        <p>신규 가입자는 첫 구독 10,000원 할인, 추천한 기존 사용자는 5,000원 크레딧을 적립합니다.</p>
-      </div>
-      <Link className="button ghost" href="/referrals">내 추천 현황 보기</Link>
-    </section>
+    {message && <p className="notice billing-notice">{message}</p>}
 
-    <section className="billing-summary panel">
-      <div>
-        <span className="billing-kicker">현재 상태</span>
+    <section className="subscription-overview-grid">
+      <article className="panel subscription-summary-card">
+        <span className="billing-kicker">현재 구독</span>
         <h2>
           {subscription?.status === "trialing"
             ? `7일 무료 체험 · ${trialLeft}일 남음`
@@ -320,76 +278,122 @@ export default function BillingPage() {
                 ? "결제 확인 필요"
                 : "구독 종료"}
         </h2>
-        <p>{settings.business_name || "내 비즈니스"} · 선택 요금제 <strong>{activePlan.name}</strong></p>
+        <p>{settings.business_name || "내 비즈니스"} · <strong>{activePlan.name}</strong></p>
         {nextBillingAt && <p className="muted-text">다음 결제 예정일 {new Date(nextBillingAt).toLocaleDateString("ko-KR")}</p>}
+        <div className="mini-usage">
+          <span>고객 사용량</span>
+          <strong>{customerCount.toLocaleString("ko-KR")} / {activePlan.customerLimit.toLocaleString("ko-KR")}</strong>
+          <div className="usage-track">
+            <i style={{ width: `${Math.min(100, (customerCount / activePlan.customerLimit) * 100)}%` }} />
+          </div>
+        </div>
+      </article>
+
+      <article className="panel subscription-summary-card">
+        <span className="billing-kicker">자동결제</span>
+        <h2>{card ? "카드 등록 완료" : "결제수단 미등록"}</h2>
+        <p>{card ? `${card.card_number_masked || "등록된 카드"} ${card.card_issuer_code ? `· ${card.card_issuer_code}` : ""}` : "무료 체험 종료 전 카드를 등록해주세요."}</p>
+        <button className="button primary" disabled={registering} onClick={registerCard}>
+          {registering ? "등록창 여는 중..." : card ? "카드 변경" : "카드 등록"}
+        </button>
+      </article>
+
+      <article className="panel subscription-summary-card">
+        <span className="billing-kicker">추천 크레딧</span>
+        <h2>{formatWon(credit)}</h2>
+        <p>다음 결제 예상 {formatWon(expectedCharge)} · 이월 {formatWon(carryOver)}</p>
+        <div className="referral-mini-id">
+          <span>내 추천 ID</span>
+          <strong>{referralCode || "-"}</strong>
+          <button className="button ghost tiny" onClick={copyReferralCode}>{copied ? "복사됨" : "복사"}</button>
+        </div>
+      </article>
+    </section>
+
+    <section className="panel unified-section">
+      <div className="section-head">
+        <div><span className="billing-kicker">PLAN</span><h2>요금제</h2></div>
       </div>
 
-      <div className="usage-box">
-        <span>고객 사용량</span>
-        <strong>{customerCount.toLocaleString("ko-KR")} / {activePlan.customerLimit.toLocaleString("ko-KR")}</strong>
-        <div className="usage-track">
-          <i style={{ width: `${Math.min(100, (customerCount / activePlan.customerLimit) * 100)}%` }} />
+      <div className="pricing-grid">
+        {PLAN_CATALOG.map((plan) => {
+          const selected = activePlan.code === plan.code;
+          return <article key={plan.code} className={plan.recommended ? "price-card recommended" : "price-card"}>
+            {plan.recommended && <span className="recommend-badge">추천</span>}
+            <h2>{plan.name}</h2>
+            <div className="price"><strong>{formatWon(plan.priceMonthly)}</strong><span>/월</span></div>
+            <p className="plan-limit">고객 {plan.customerLimit.toLocaleString("ko-KR")}명 · 사용자 {plan.memberLimit}명</p>
+            <ul>{plan.features.map((feature) => <li key={feature}>✓ {feature}</li>)}</ul>
+            <button
+              className={selected ? "button ghost full" : "button primary full"}
+              disabled={selected || saving !== null}
+              onClick={() => choosePlan(plan.code)}
+            >
+              {selected ? "선택됨" : saving === plan.code ? "저장 중..." : "이 요금제 선택"}
+            </button>
+          </article>;
+        })}
+      </div>
+    </section>
+
+    <section className="panel unified-section">
+      <div className="section-head">
+        <div><span className="billing-kicker">REFERRAL</span><h2>지인추천</h2></div>
+        <div className="referral-summary-inline">
+          <span>추천 가입 {referrals.length}명</span>
+          <span>보상 확정 {confirmedReferrals}명</span>
+          <strong>사용 가능 {formatWon(credit)}</strong>
+        </div>
+      </div>
+
+      <div className="referral-combined-grid">
+        <div className="referral-main-card">
+          <span>내 추천 ID</span>
+          <strong>{referralCode || "-"}</strong>
+          <button className="button ghost" onClick={copyReferralCode}>{copied ? "복사됨" : "추천 ID 복사"}</button>
+        </div>
+
+        <div className="referral-benefit-card">
+          <strong>추천 혜택</strong>
+          <p>신규 가입자는 첫 유료 구독 10,000원 할인</p>
+          <p>추천한 기존 사용자는 첫 결제 완료 시 5,000원 크레딧 적립</p>
+          <p>크레딧은 구독료에서 자동 차감되고 남는 금액은 다음 달로 이월됩니다.</p>
         </div>
       </div>
     </section>
 
-    {message && <p className="notice billing-notice">{message}</p>}
-
-    <section className="panel payment-method-panel">
-      <div>
-        <span className="billing-kicker">자동결제 수단</span>
-        {card ? <>
-          <h2>카드 등록 완료</h2>
-          <p>{card.card_number_masked || "등록된 카드"} {card.card_issuer_code ? `· ${card.card_issuer_code}` : ""}</p>
-        </> : <>
-          <h2>결제수단을 등록해주세요</h2>
-          <p>무료 체험 종료 후 선택한 요금제로 자동결제됩니다.</p>
-        </>}
+    <section className="panel unified-section">
+      <div className="section-head">
+        <div><span className="billing-kicker">HISTORY</span><h2>결제내역</h2></div>
+        <span className="muted-text">최근 {Math.min(transactions.length, 5)}건</span>
       </div>
 
-      <button className="button primary" disabled={registering} onClick={registerCard}>
-        {registering ? "등록창 여는 중..." : card ? "카드 변경" : "카드 등록"}
-      </button>
-    </section>
-
-    {billingFailures > 0 && (
-      <section className="panel billing-failure-warning">
-        <div>
-          <strong>자동결제 확인이 필요합니다.</strong>
-          <p>최근 결제 실패가 있습니다. 카드 정보 또는 한도를 확인해주세요.</p>
+      {transactions.length === 0 ? (
+        <p className="muted-text">아직 결제내역이 없습니다.</p>
+      ) : (
+        <div className="billing-history-list">
+          {transactions.slice(0, 5).map((row) => (
+            <article key={row.id} className="billing-history-item">
+              <div>
+                <strong>{TX_STATUS[row.status] || row.status}</strong>
+                <span>{new Date(row.paid_at || row.scheduled_for).toLocaleString("ko-KR")}</span>
+                <small>{row.order_id}</small>
+              </div>
+              <div className="billing-history-money">
+                <strong>{formatWon(row.amount_cents)}</strong>
+                {row.discount_cents > 0 && <span>추천 할인 -{formatWon(row.discount_cents)}</span>}
+                {row.credit_applied_cents > 0 && <span>크레딧 -{formatWon(row.credit_applied_cents)}</span>}
+              </div>
+              {row.status === "failed" && (
+                <div className="billing-history-error">
+                  {row.error_code && <code>{row.error_code}</code>}
+                  <span>{row.error_message || "결제 실패"}</span>
+                </div>
+              )}
+            </article>
+          ))}
         </div>
-        <Link className="button ghost" href="/billing/history">결제내역 확인</Link>
-      </section>
-    )}
-
-    <section className="panel billing-links">
-      <div>
-        <strong>결제 관리</strong>
-        <p>최근 결제내역과 추천 할인·크레딧 적용 결과를 확인할 수 있습니다.</p>
-      </div>
-      <Link className="button ghost" href="/billing/history">결제내역 보기</Link>
-    </section>
-
-    <section className="pricing-grid">
-      {PLAN_CATALOG.map((plan) => {
-        const selected = activePlan.code === plan.code;
-
-        return <article key={plan.code} className={plan.recommended ? "price-card recommended" : "price-card"}>
-          {plan.recommended && <span className="recommend-badge">추천</span>}
-          <h2>{plan.name}</h2>
-          <div className="price"><strong>{formatWon(plan.priceMonthly)}</strong><span>/월</span></div>
-          <p className="plan-limit">고객 {plan.customerLimit.toLocaleString("ko-KR")}명 · 사용자 {plan.memberLimit}명</p>
-          <ul>{plan.features.map((feature) => <li key={feature}>✓ {feature}</li>)}</ul>
-
-          <button
-            className={selected ? "button ghost full" : "button primary full"}
-            disabled={selected || saving !== null}
-            onClick={() => choosePlan(plan.code)}
-          >
-            {selected ? "선택됨" : saving === plan.code ? "저장 중..." : "이 요금제 선택"}
-          </button>
-        </article>;
-      })}
+      )}
     </section>
 
     <section className="panel billing-next">
@@ -406,74 +410,5 @@ export default function BillingPage() {
         {cancelSaving ? "처리 중..." : subscription?.cancel_at_period_end ? "자동결제 유지" : "기간 종료 후 해지"}
       </button>
     </section>
-
-    {/* 관리자 계정에서만 보이는 영역 */}
-    {isAdmin && (
-      <section className="admin-console panel">
-        <div className="admin-console-head">
-          <div>
-            <span className="billing-kicker">LEADMATE ADMIN</span>
-            <h2>구독 관리자</h2>
-            <p>이 영역은 관리자 계정에서만 표시됩니다. 현재 권한: <strong>{adminRole}</strong></p>
-          </div>
-          <span className="admin-only-badge">관리자 전용</span>
-        </div>
-
-        <div className="admin-sub-stats embedded">
-          <article><span>전체</span><strong>{adminStats.total}</strong></article>
-          <article><span>구독 중</span><strong>{adminStats.active}</strong></article>
-          <article><span>체험 중</span><strong>{adminStats.trialing}</strong></article>
-          <article><span>미결제</span><strong>{adminStats.pastDue}</strong></article>
-        </div>
-
-        <div className="admin-override-grid">
-          <label>사업장
-            <select value={adminSelected} onChange={(e) => setAdminSelected(e.target.value)}>
-              {adminRows.map((row) => (
-                <option key={row.business_id} value={row.business_id}>
-                  {row.business?.name || row.business_id}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label>할인 금액
-            <input type="number" value={adminDiscount} onChange={(e) => setAdminDiscount(e.target.value)} />
-          </label>
-
-          <label>사유
-            <input value={adminReason} onChange={(e) => setAdminReason(e.target.value)} />
-          </label>
-        </div>
-
-        {adminMessage && <p className="notice">{adminMessage}</p>}
-
-        <div className="button-row">
-          <button className="button primary" disabled={adminSaving} onClick={() => applyAdminOverride("free")}>무료 이용 부여</button>
-          <button className="button ghost" disabled={adminSaving} onClick={() => applyAdminOverride("discount")}>할인 부여</button>
-          <button className="button ghost" disabled={adminSaving} onClick={() => applyAdminOverride("clear_overrides")}>특권 해제</button>
-        </div>
-
-        <div className="admin-sub-list compact-list">
-          {adminRows.slice(0, 10).map((row) => (
-            <article key={row.business_id} className="admin-sub-row">
-              <div>
-                <strong>{row.business?.name || "사업장"}</strong>
-                <span>{row.business?.referral_code || "-"}</span>
-              </div>
-              <div><span>요금제</span><strong>{row.plan_code}</strong></div>
-              <div><span>상태</span><strong>{row.status}</strong></div>
-              <div><span>다음 결제</span><strong>{row.next_billing_at ? new Date(row.next_billing_at).toLocaleDateString("ko-KR") : "-"}</strong></div>
-              <div><span>최근 결제</span><strong>{formatWon(Number(row.last_payment_amount || 0))}</strong></div>
-              <div><span>실패</span><strong>{row.billing_failures}회</strong></div>
-            </article>
-          ))}
-        </div>
-
-        <div className="admin-console-footer">
-          <Link className="button ghost" href="/admin/subscriptions">관리자 전체 화면 열기</Link>
-        </div>
-      </section>
-    )}
   </AppShell>;
 }

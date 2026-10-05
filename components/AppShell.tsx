@@ -1,11 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { useAdminStatus } from "@/lib/useAdminStatus";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { APP_VERSION } from "@/lib/version";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
+  const { isAdmin } = useAdminStatus();
+  const navItems = isAdmin
+    ? [...baseNavItems, { href: "/admin/subscriptions", label: "관리자" }]
+    : baseNavItems;
   const pathname = usePathname();
   const router = useRouter();
   async function logout() { const supabase = createClient(); await supabase.auth.signOut(); router.replace("/login"); router.refresh(); }

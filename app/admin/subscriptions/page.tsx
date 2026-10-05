@@ -62,7 +62,7 @@ export default function AdminSubscriptionsPage() {
   }
 
   return <AppShell>
-    <div className="page-head"><div><p className="eyebrow">ADMIN</p><h1>구독 관리자</h1><p>전체 사업장 구독상태와 관리자 특권을 관리합니다.</p></div></div>
+    <div className="page-head"><div><p className="eyebrow">ADMIN</p><h1>구독 관리자</h1><p>전체 사업장 구독, 무료 이용, 할인 특권을 관리합니다.</p></div></div>
 
     {error && <p className="notice">{error}</p>}
 

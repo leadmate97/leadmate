@@ -420,3 +420,59 @@ label { display: grid; gap: 7px; font-size: 14px; font-weight: 700; color: #3439
   .admin-console-footer { justify-content:stretch; }
   .admin-console-footer .button { width:100%; }
 }
+
+
+/* V2.4.8 unified subscription center */
+.subscription-overview-grid {
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:14px;
+  margin-bottom:18px;
+}
+.subscription-summary-card {
+  display:grid;
+  align-content:start;
+  gap:8px;
+}
+.subscription-summary-card h2 { margin:0; }
+.subscription-summary-card p { margin:0; color:var(--muted); }
+.subscription-summary-card .button { margin-top:8px; justify-self:start; }
+.mini-usage { display:grid; gap:6px; margin-top:8px; }
+.mini-usage > span { color:var(--muted); font-size:12px; }
+.referral-mini-id { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:6px; }
+.referral-mini-id span { color:var(--muted); font-size:12px; }
+.referral-mini-id strong { letter-spacing:.05em; }
+.button.tiny { padding:6px 9px; min-height:auto; font-size:12px; }
+.unified-section { margin-bottom:18px; }
+.section-head { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:16px; }
+.section-head h2 { margin:4px 0 0; }
+.referral-summary-inline { display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
+.referral-summary-inline span, .referral-summary-inline strong {
+  display:inline-flex;
+  padding:7px 10px;
+  border-radius:999px;
+  background:#f3f6fb;
+  font-size:12px;
+}
+.referral-combined-grid {
+  display:grid;
+  grid-template-columns:minmax(260px,.75fr) 1.25fr;
+  gap:16px;
+}
+.referral-main-card, .referral-benefit-card {
+  border:1px solid var(--line);
+  border-radius:16px;
+  padding:18px;
+  background:#fff;
+}
+.referral-main-card { display:grid; gap:10px; align-content:start; }
+.referral-main-card > span { color:var(--muted); font-size:12px; }
+.referral-main-card > strong { font-size:28px; letter-spacing:.08em; }
+.referral-benefit-card { display:grid; gap:6px; }
+.referral-benefit-card p { margin:0; color:var(--muted); }
+@media (max-width:900px) {
+  .subscription-overview-grid { grid-template-columns:1fr; }
+  .referral-combined-grid { grid-template-columns:1fr; }
+  .section-head { flex-direction:column; }
+  .referral-summary-inline { justify-content:flex-start; }
+}
